@@ -18,8 +18,7 @@
 "	- Using it ? please, leave a word ;)
 
 if !has('ruby')
-		s:ErrMsg( "Error: Required vim compiled with +ruby" )
-		finish
+	finish
 endif
 
 "	Vim syntax functions
