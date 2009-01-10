@@ -280,12 +280,15 @@ ruby <<EOF
 						'post_link' => resp['link'],
 						'post_permalink' => resp['permalink'],
 						'post_author' => resp['userid'],
+						'post_author_name' => resp['wp_author_display_name'],
+						'post_slug' => resp['wp_slug'],
 						'post_allow_comments' => resp['mt_allow_comments'],
 						'post_comment_status' => resp['comment_status'],
 						'post_allow_pings' => resp['mt_allow_pings'],
 						'post_ping_status' => resp['mt_ping_status'],
 						'post_categories' => resp['categories'].join(' '),
-						'post_body' => resp['description']
+						'post_body' => resp['description'],
+						'post_status' => resp['post_status']
 					}
 
 				when "rp"
