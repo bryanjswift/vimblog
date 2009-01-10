@@ -5,3 +5,5 @@ Author: pedro mg <pedro.mota [at] gmail.com>
 INTRODUCTION
 
 This plugin is an attempt to emulate TextMate's Blogging bundle for VIM.
+
+ vim:tw=78:ts=8:ft=help
