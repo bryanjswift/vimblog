@@ -76,13 +76,24 @@ ruby <<EOF
 	require 'time.rb'
 	class Wp_vim
 
-		BLOG_ACCOUNTS_FILE = File.expand_path(VIM::evaluate("g:blogconfig"))
+		#######
+		# class variable definitions
+		@blogdatafile = nil
+		@blog = nil
+		@login = nil
+		@passwd = nil
+		@site = nil
+		@xml = nil
+		@port = nil
+		@blog_id = nil
+		@user = nil
 
 		#######
 		# class initialization. Instantiates the @blog class variable to
 		# retain blog site information for future api calls
 		#
 		def initialize
+			@blogdatafile = File.expand_path(VIM::evaluate("g:blogconfig"))
 			begin
 				get_personal_data
 				@blog = XMLRPC::Client.new(@site, @xml, @port)
@@ -95,11 +106,10 @@ ruby <<EOF
 		end
 
 		#######
-		# class variables for personnal data. Please *change* them accordingly.
-		# CHANGE HERE:
+		# class variables for personnal data.
 		def get_personal_data
-			if File.exist?(BLOG_ACCOUNTS_FILE)
-				configdata = IO.readlines(BLOG_ACCOUNTS_FILE)
+			if File.exist?(@blogdatafile)
+				configdata = IO.readlines(@blogdatafile)
 			else
 				raise StandardException, 'Configuration not defined'
 				return
@@ -179,8 +189,8 @@ ruby <<EOF
 		# new post. Creates a template for a new post.
 		#
 		def blog_np
-			@post_date = same_dt_fmt(Time.now)
-			@post_author = @user
+			post_date = same_dt_fmt(Time.now)
+			post_author = @user
 			VIM::command("call Post_syn_hl()")
 			v = VIM::Buffer.current
 			v.append(v.count-1, "Title		: ")
@@ -287,7 +297,7 @@ ruby <<EOF
 
 				when "gp"
 					resp = @blog.call("metaWeblog.getPost", args[0], @login, @passwd)
-					@post_id = resp['postid']
+					post_id = resp['postid']
 					return {
 						'post_id' => resp['postid'],
 						'post_title' => resp['title'],
