@@ -94,10 +94,10 @@ ruby <<EOF
 		# class variables for personnal data. Please *change* them accordingly.
 		# CHANGE HERE:
 		def get_personal_data
-			@login = "admin" # insert your login here
-			@passwd = "loki5652" # insert your password here
-			@site = "endoftheplanet.info" # insert your blog url here, but do not use http://
-			@xml = "/eotp/xmlrpc.php" # change if necessary
+			@login = "" # insert your login here
+			@passwd = "" # insert your password here
+			@site = "" # insert your blog url here, but do not use http://
+			@xml = "/xmlrpc.php" # change if necessary
 			@port = 80 # change if necessary
 			@blog_id = 0
 			@user =	1

@@ -1,0 +1,7 @@
+*vimblog.txt*  Plugin for blogging (primarily Wordpress) from VIM
+
+Author: pedro mg <pedro.mota [at] gmail.com>
+
+INTRODUCTION
+
+This plugin is an attempt to emulate TextMate's Blogging bundle for VIM.
