@@ -76,6 +76,8 @@ ruby <<EOF
 	require 'time.rb'
 	class Wp_vim
 
+		BLOG_ACCOUNTS_FILE = File.expand_path(VIM::evaluate("g:blogconfig"))
+
 		#######
 		# class initialization. Instantiates the @blog class variable to
 		# retain blog site information for future api calls
@@ -87,6 +89,8 @@ ruby <<EOF
 				self.send("blog_"+VIM::evaluate("a:start"))
 			rescue XMLRPC::FaultException => e
 				xmlrpc_flt_xcptn(e)
+			rescue StandardException => e
+				puts 'Configuration file not found. Please set g:blogconfig in your runtime path.'
 			end
 		end
 
@@ -94,13 +98,24 @@ ruby <<EOF
 		# class variables for personnal data. Please *change* them accordingly.
 		# CHANGE HERE:
 		def get_personal_data
-			@login = "" # insert your login here
-			@passwd = "" # insert your password here
-			@site = "" # insert your blog url here, but do not use http://
-			@xml = "/xmlrpc.php" # change if necessary
-			@port = 80 # change if necessary
-			@blog_id = 0
-			@user =	1
+			if File.exist?(BLOG_ACCOUNTS_FILE)
+				configdata = IO.readlines(BLOG_ACCOUNTS_FILE)
+			else
+				raise StandardException, 'Configuration not defined'
+				return
+			end
+			config = {}
+			configdata.each { |data|
+				data = data.strip
+				config[data.gsub(/:\s.+$/,'').to_sym] = data.gsub(/^\w+:\s+/,'')
+			}
+			@login = config[:login]
+			@passwd = config[:passwd]
+			@site = config[:site]
+			@xml = config[:xml] || '/xmlrpc.php'
+			@port = config[:port].to_i || 80
+			@blog_id = config[:blog_id].to_i || 0
+			@user =	config[:user].to_i || 1
 		end
 
 		def get_post_content
