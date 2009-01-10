@@ -272,8 +272,9 @@ ruby <<EOF
 
 				when "gp"
 					resp = @blog.call("metaWeblog.getPost", args[0], @login, @passwd)
-		@post_id = resp['postid']
-					return { 'post_id' => resp['postid'],
+					@post_id = resp['postid']
+					return {
+						'post_id' => resp['postid'],
 						'post_title' => resp['title'],
 						'post_date' => same_dt_fmt(resp['dateCreated'].to_time),
 						'post_link' => resp['link'],
@@ -287,38 +288,39 @@ ruby <<EOF
 						'post_body' => resp['description']
 					}
 
-	when "rp"
+				when "rp"
 					resp = @blog.call("mt.getRecentPostTitles", @blog_id, @login, @passwd, args[0])
-		arr_hash = []
+					arr_hash = []
 					resp.each { |r| arr_hash << { 'post_id' => r['postid'],
 																				'post_title' => r['title'],
 																				'post_date' => r['dateCreated'].to_time }
-		}
-		return arr_hash
+					}
+					return arr_hash
 
-	when "cl"
+				when "cl"
 					resp = @blog.call("mt.getCategoryList", @blog_id, @login, @passwd)
-		arr_hash = []
+					arr_hash = []
 					resp.each { |r| arr_hash << r['categoryName'] }
-		return arr_hash
+					return arr_hash
 
-	when "draft"
-		args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
-		args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
+				when "draft"
+					args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
+					args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
 					resp = @blog.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
 					return { 'post_id' => resp }
 
 				when "publish"
-		args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
-		args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
+					args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
+					args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
 					resp = @blog.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
 					return { 'post_id' => resp }
 
-				 when "del"
+				when "del"
 					resp = @blog.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], @login, @passwd)
 					return resp
 
 			 end
+
 			rescue XMLRPC::FaultException => e
 				xmlrpc_flt_xcptn(e)
 			end
