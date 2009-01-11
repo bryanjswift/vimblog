@@ -1,9 +1,10 @@
 *vimblog.txt*  Plugin for blogging (primarily Wordpress) from VIM
 
-Author: pedro mg <pedro.mota [at] gmail.com>
+Original Author: pedro mg <pedro.mota [at] gmail.com>
+Modified By: bryanjswift <bryan [at] bryanjswift.com>
 
 INTRODUCTION
 
 This plugin is an attempt to emulate TextMate's Blogging bundle for VIM.
 
- vim:tw=78:ts=8:ft=help
+ vim:tw=78:ts=2:ft=help

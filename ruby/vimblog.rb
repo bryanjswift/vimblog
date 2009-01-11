@@ -295,4 +295,4 @@ class Vimblog
 		VIM::command("echo \"#{msg}\"")
 	end
 
-end # class Wp_vim
+end # class Vimblog

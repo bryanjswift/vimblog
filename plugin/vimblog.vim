@@ -114,5 +114,3 @@ EOF
 	endtry
 endfunction
 " }}}1
-
-
