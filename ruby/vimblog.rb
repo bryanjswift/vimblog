@@ -5,24 +5,19 @@ class Vimblog
 	#######
 	# class variable definitions
 	@blogdatafile = nil
-	@blog = nil
-	@login = nil
-	@passwd = nil
-	@site = nil
-	@xml = nil
-	@port = nil
-	@blog_id = nil
-	@user = nil
+	@xmlrpc = nil
+	@post = {}
+	@publish = true
 
 	#######
-	# class initialization. Instantiates the @blog class variable to
+	# class initialization. Instantiates the @xmlrpc class variable to
 	# retain blog site information for future api calls
 	#
 	def initialize
 		@blogdatafile = File.expand_path(VIM::evaluate("g:blogconfig"))
 		begin
 			get_personal_data
-			@blog = XMLRPC::Client.new(@site, @xml, @port)
+			@xmlrpc = XMLRPC::Client.new(@site, @xml, @port)
 			self.send("blog_"+VIM::evaluate("a:start"))
 		rescue XMLRPC::FaultException => e
 			xmlrpc_flt_xcptn(e)
@@ -42,46 +37,49 @@ class Vimblog
 		end
 		config = {}
 		configdata.each { |data|
-			data = data.strip
-			config[data.gsub(/:\s.+$/,'').to_sym] = data.gsub(/^\w+:\s+/,'')
+			data = data.strip.scan(/(.+?)\s+(\d+):(\w+?):(.*?)\s+https?:\/\/(\d+):(.*?):(\d+)(\/.*)/)[0]
+			config[data[0]] = {
+				:login => data[2],
+				:passwd => data[3],
+				:site => data[5],
+				:xml => data[7] || '/xmlrpc.php',
+				:port => data[6] || 80,
+				:blog_id => data[4] || 0,
+				:user => data[2] || 1
+			}
 		}
-		@login = config[:login]
-		@passwd = config[:passwd]
-		@site = config[:site]
-		@xml = config[:xml] || '/xmlrpc.php'
-		@port = config[:port].to_i || 80
-		@blog_id = config[:blog_id].to_i || 0
-		@user =	config[:user].to_i || 1
 	end
 
 	def get_post_content
 		post_content = {}
-		new_post = VIM::Buffer.current[1][0..4].upcase == "Title".upcase
-		post_content['new_post'] = new_post
-		case new_post
-		when true
-			post_content['title'] = (VIM::Buffer.current[1]).gsub(/Title *:/, '').strip
-			post_content['dateCreated'] = Time.parse(((VIM::Buffer.current[2]).gsub(/Date *:/, '')).strip)
-			post_content['mt_allow_comments'] = (VIM::Buffer.current[3]).gsub(/Comments *:/, '')
-			post_content['mt_allow_pings'] = (VIM::Buffer.current[4]).gsub(/Pings *:/, '')
-			post_content['categories'] = (VIM::Buffer.current[5]).gsub(/Categs *:/, '').split
-			body = [] # from line 8 to the end, grab the post body content
-			8.upto(VIM::Buffer.current.count) { |line| body << VIM::Buffer.current[line] }
-			post_content['description'] = body.join("\r")
-		else
-			post_content['post_id'] = ((VIM::Buffer.current[1]).gsub(/Post.*\[/, '')).strip.chop
-			post_content['title'] = (VIM::Buffer.current[2]).gsub(/Title *:/, '')
-			post_content['dateCreated'] = Time.parse(((VIM::Buffer.current[3]).gsub(/Date *:/, '')).strip)
-			post_content['mt_allow_comments'] = (VIM::Buffer.current[7]).gsub(/Comments *:/, '')
-			post_content['mt_allow_pings'] = (VIM::Buffer.current[8]).gsub(/Pings *:/, '')
-			post_content['categories'] = (VIM::Buffer.current[9]).gsub(/Categs *:/, '').split
-			body = [] # from line 11 to the end, grab the post body content
-			11.upto(VIM::Buffer.current.count) { |line| body << VIM::Buffer.current[line] }
-			post_content['description'] = body.join("\r")
+		in_headers = true
+		buffer = VIM::Buffer.current
+		num_lines = buffer.count
+		current = 1;
+		while current <= num_lines
+			line = buffer[current]
+			current = current + 1
+			if in_headers
+				if line =~ /^(\w+):[ ]*(.+)/
+					key = $1.downcase.to_sym
+					case key
+						when :category
+							@post[:categories] = [] unless @post[:categories]
+							@post[:categories].push($2)
+						when :status
+							@publish = false if $2 =~ /draft/i
+						else
+							@post[key] = $2
+					end
+				else
+					in_headers = false
+				end # line =~
+			else
+				@post[:description] << line
+			end # in_headers
 		end
-		post_content['mt_exceprt'] = ''
-		post_content['mt_text_more'] = ''
-		post_content['mt_tb_ping_urls'] = []
+		@post[:wp_slug] = @post[:slug] if @post[:slug]
+		@post[:post_id] = @post[:post] if @post[:post]
 		return post_content
 	end
 
@@ -89,9 +87,8 @@ class Vimblog
 	# publish the post. Verifies if it is new post, or an editied existing one.
 	#
 	def blog_publish
-		p = get_post_content
-		resp = blog_api("publish", p, true, p['new_post'])
-		if (p['new_post'] and resp['post_id'])
+		resp = blog_api("publish", @post, true, @post['new_post'])
+		if (@post['new_post'] and resp['post_id'])
 		then
 			VIM::command("enew!")
 			VIM::command("Blog gp #{resp['post_id']}")
@@ -102,9 +99,8 @@ class Vimblog
 	# save post as draft. Verifies if it is new post, or an editied existing one.
 	#
 	def blog_draft
-		p = get_post_content
-		resp = blog_api("draft", p, false, p['new_post'])
-		if (p['new_post'] and resp['post_id'])
+		resp = blog_api("draft", @post, false, @post['new_post'])
+		if (@post['new_post'] and resp['post_id'])
 		then
 			VIM::command("enew!")
 			VIM::command("Blog gp #{resp['post_id']}")
@@ -222,28 +218,29 @@ class Vimblog
 			case fn_api
 
 			when "gp"
-				resp = @blog.call("metaWeblog.getPost", args[0], @login, @passwd)
+				resp = @xmlrpc.call("metaWeblog.getPost", args[0], @login, @passwd)
 				post_id = resp['postid']
-				return {
-					'post_id' => resp['postid'],
-					'post_title' => resp['title'],
-					'post_date' => same_dt_fmt(resp['dateCreated'].to_time),
-					'post_link' => resp['link'],
-					'post_permalink' => resp['permalink'],
-					'post_author' => resp['userid'],
-					'post_author_name' => resp['wp_author_display_name'],
-					'post_slug' => resp['wp_slug'],
-					'post_allow_comments' => resp['mt_allow_comments'],
-					'post_comment_status' => resp['comment_status'],
-					'post_allow_pings' => resp['mt_allow_pings'],
-					'post_ping_status' => resp['mt_ping_status'],
-					'post_categories' => resp['categories'].join(' '),
-					'post_body' => resp['description'],
-					'post_status' => resp['post_status']
+				@post = {
+					:post_id => resp['postid'],
+					:title => resp['title'],
+					:date => same_dt_fmt(resp['dateCreated'].to_time),
+					:link => resp['link'],
+					:permalink => resp['permalink'],
+					:author => resp['userid'],
+					:author_name => resp['wp_author_display_name'],
+					:slug => resp['wp_slug'],
+					:allow_comments => resp['mt_allow_comments'],
+					:comment_status => resp['comment_status'],
+					:allow_pings => resp['mt_allow_pings'],
+					:ping_status => resp['mt_ping_status'],
+					:categories => resp['categories'],
+					:description => resp['description'],
+					:status => resp['post_status']
 				}
+				return @post
 
 			when "rp"
-				resp = @blog.call("mt.getRecentPostTitles", @blog_id, @login, @passwd, args[0])
+				resp = @xmlrpc.call("mt.getRecentPostTitles", @blog_id, @login, @passwd, args[0])
 				arr_hash = []
 				resp.each { |r| arr_hash << { 'post_id' => r['postid'],
 																			'post_title' => r['title'],
@@ -252,7 +249,7 @@ class Vimblog
 				return arr_hash
 
 			when "cl"
-				resp = @blog.call("mt.getCategoryList", @blog_id, @login, @passwd)
+				resp = @xmlrpc.call("mt.getCategoryList", @blog_id, @login, @passwd)
 				arr_hash = []
 				resp.each { |r| arr_hash << r['categoryName'] }
 				return arr_hash
@@ -260,17 +257,17 @@ class Vimblog
 			when "draft"
 				args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
 				args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
-				resp = @blog.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
+				resp = @xmlrpc.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
 				return { 'post_id' => resp }
 
 			when "publish"
 				args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
 				args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
-				resp = @blog.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
+				resp = @xmlrpc.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
 				return { 'post_id' => resp }
 
 			when "del"
-				resp = @blog.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], @login, @passwd)
+				resp = @xmlrpc.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], @login, @passwd)
 				return resp
 
 		 end
