@@ -42,8 +42,9 @@ class Vimblog
 		end
 		config = {}
 		configdata.each { |data|
-			data = data.strip
-			config[data.gsub(/:\s.+$/,'').to_sym] = data.gsub(/^\w+:\s+/,'')
+			if data.strip =~ /^(\w+):\s+(.+)$/
+				config[$1.to_sym] = $2
+			end
 		}
 		@login = config[:login]
 		@passwd = config[:passwd]
