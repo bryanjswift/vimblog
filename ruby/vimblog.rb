@@ -4,11 +4,8 @@ class Vimblog
 
 	#######
 	# class variable definitions
-	@blogdatafile = nil
-	@config = {}
 	@post = {}
 	@publish = true
-	@xmlrpc = nil
 
 	#######
 	# class initialization. Instantiates the @xmlrpc class variable to
@@ -17,8 +14,9 @@ class Vimblog
 	def initialize
 		@blogdatafile = File.expand_path(VIM::evaluate("g:blogconfig"))
 		begin
-			get_personal_data
-			@xmlrpc = XMLRPC::Client.new(@site, @xml, @port)
+			@config = get_personal_data
+			blogconfig = @config[VIM::evaluate("a:blog")]
+			@xmlrpc = XMLRPC::Client.new(blogconfig[:site], blogconfig[:xml], blogconfig[:port])
 			self.send("blog_"+VIM::evaluate("a:start"))
 		rescue XMLRPC::FaultException => e
 			xmlrpc_flt_xcptn(e)
@@ -36,18 +34,21 @@ class Vimblog
 			raise StandardException, 'Configuration not defined'
 			return
 		end
+		tempconfig = {}
 		configdata.each { |data|
-			data = data.strip.scan(/(.+?)\s+(\d+):(\w+?):(.*?)\s+https?:\/\/(\d+):(.*?):(\d+)(\/.*)/)[0]
-			@config[data[0]] = {
-				:login => data[2],
-				:passwd => data[3],
-				:site => data[5],
-				:xml => data[7] || '/xmlrpc.php',
-				:port => data[6] || 80,
-				:blog_id => data[4] || 0,
-				:user => data[2] || 1
-			}
+			if data.strip =~ /^(.+?)\s+(\d+):(\w+?):(.*?)\s+https?:\/\/(\d+):(.*?):(\d+)(\/.*)/
+				tempconfig[$1] = {
+					:login => $3,
+					:passwd => $4,
+					:site => $6,
+					:xml => $8 ? $8 : '/xmlrpc.php',
+					:port => $7 ? $7 : 80,
+					:blog_id => $5 ? $5 : 0,
+					:user => $2 ? $2 : 1
+				}
+			end
 		}
+		return tempconfig
 	end
 
 	def get_post_content
@@ -146,17 +147,17 @@ class Vimblog
 	# recent [num] posts. Gets some info for the most recent [num] or 10 posts
 	#
 	def blog_rp
-		VIM::evaluate("a:0").to_i > 0 ? ((num = VIM::evaluate("a:1")).to_i ? num.to_i : num = 10) : num = 10
+		VIM::evaluate("a:0").to_i > 0 ? ((num = VIM::evaluate("a:1")).to_i ? num.to_i : num = 10) : num = 10	
 		resp = blog_api("rp", num)
 		# create a new window with syntax highlight.
 		# this allows you to rapidely close the window (:q!) and get that post id.
 		VIM::command(":new")
 		VIM::command("call Blog_syn_hl()")
 		v = VIM::Buffer.current
-		v.append(v.count, "MOST RECENT #{num} POSTS: ")
-		v.append(v.count, " ")
+		v.append(v.count, "MOST RECENT #{num} POSTS:")
+		v.append(v.count, "")
 		resp.each { |r|
-			v.append(v.count, "Post : [#{r[:postid]}]	Date: #{r[:date]}")
+			v.append(v.count, "Post : [#{r[:postid]}]		Date: #{r[:date]}")
 			v.append(v.count, "Title: \"#{r[:title]}\"")
 			v.append(v.count, " ")
 		}
@@ -214,8 +215,7 @@ class Vimblog
 	# MovableType very easilly.
 	#
 	def blog_api(fn_api, *args)
-		blog = VIM::evaluate("a:blog")
-		blogconfig = @config[blog]
+		blogconfig = @config[VIM::evaluate("a:blog")]
 		begin
 			case fn_api
 
@@ -249,11 +249,10 @@ class Vimblog
 				# blog_api('rp', numposts)
 				# metaWeblog.getRecentPosts (blogid, username, password, numberOfPosts) returns array of structs
 				# structs are whole post objects
-				resp = @xmlrpc.call("mt.getRecentPostTitles", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd], args[0])
+				resp = @xmlrpc.call("metaWeblog.getRecentPosts", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd], args[0])
 				postarray = []
-				resp.each { |r| postarray << { [:postid] => r['postid'],
-																			[:title] => r['title'],
-																			[:date] => r['dateCreated'].to_time }
+				resp.each { |r|
+					postarray << { :postid => r['postid'], :title => r['title'], :date => r['dateCreated'].to_time }
 				}
 				return postarray
 
