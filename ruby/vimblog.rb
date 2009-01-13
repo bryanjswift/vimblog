@@ -6,6 +6,8 @@ class Vimblog
 	# class variable definitions
 	@post = {}
 	@publish = true
+	#@config defined in initialize
+	#@xmlrpc defined in initialize
 
 	#######
 	# class initialization. Instantiates the @xmlrpc class variable to
