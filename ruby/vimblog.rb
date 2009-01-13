@@ -5,9 +5,10 @@ class Vimblog
 	#######
 	# class variable definitions
 	@blogdatafile = nil
-	@xmlrpc = nil
+	@config = {}
 	@post = {}
 	@publish = true
+	@xmlrpc = nil
 
 	#######
 	# class initialization. Instantiates the @xmlrpc class variable to
@@ -35,10 +36,9 @@ class Vimblog
 			raise StandardException, 'Configuration not defined'
 			return
 		end
-		config = {}
 		configdata.each { |data|
 			data = data.strip.scan(/(.+?)\s+(\d+):(\w+?):(.*?)\s+https?:\/\/(\d+):(.*?):(\d+)(\/.*)/)[0]
-			config[data[0]] = {
+			@config[data[0]] = {
 				:login => data[2],
 				:passwd => data[3],
 				:site => data[5],
@@ -209,19 +209,21 @@ class Vimblog
 	end
 
 	#######
-	# api calls. Allways returns an hash so that if api is changed, only this
+	# api calls. Always returns an hash so that if api is changed, only this
 	# function needs to be changed. One can use between Blogger, metaWeblog or
 	# MovableType very easilly.
 	#
 	def blog_api(fn_api, *args)
+		blog = VIM::evaluate("a:blog")
+		blogconfig = @config[blog]
 		begin
 			case fn_api
 
 			when "gp"
-				resp = @xmlrpc.call("metaWeblog.getPost", args[0], @login, @passwd)
+				resp = @xmlrpc.call("metaWeblog.getPost", args[0], blogconfig[:login], blogconfig[:passwd])
 				post_id = resp['postid']
 				@post = {
-					:post_id => resp['postid'],
+					:post => resp['postid'],
 					:title => resp['title'],
 					:date => same_dt_fmt(resp['dateCreated'].to_time),
 					:link => resp['link'],
@@ -240,34 +242,43 @@ class Vimblog
 				return @post
 
 			when "rp"
-				resp = @xmlrpc.call("mt.getRecentPostTitles", @blog_id, @login, @passwd, args[0])
+				resp = @xmlrpc.call("mt.getRecentPostTitles", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd], args[0])
 				arr_hash = []
-				resp.each { |r| arr_hash << { 'post_id' => r['postid'],
-																			'post_title' => r['title'],
-																			'post_date' => r['dateCreated'].to_time }
+				resp.each { |respblock| arr_hash << { 'post_id' => respblock['postid'],
+																			'post_title' => respblock['title'],
+																			'post_date' => respblock['dateCreated'].to_time }
 				}
 				return arr_hash
 
 			when "cl"
-				resp = @xmlrpc.call("mt.getCategoryList", @blog_id, @login, @passwd)
+				resp = @xmlrpc.call("mt.getCategoryList", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd])
 				arr_hash = []
 				resp.each { |r| arr_hash << r['categoryName'] }
 				return arr_hash
 
 			when "draft"
-				args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
-				args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
-				resp = @xmlrpc.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
+				# blog_api('draft', @post, publish, new)
+				# metaWeblog.newPost(blogid, username, password, struct, publish)
+				# metaWeblog.editPost(blogid, username, password, struct, publish)
+				# struct = { "title" => "", "link" => "", "description" => "" }
+				args[2] ? method = "metaWeblog.newPost" : method = "metaWeblog.editPost"
+				args[2] ? which_id = blogconfig[:blog_id] :	which_id = args[0]['post_id']
+				resp = @xmlrpc.call(method, which_id, blogconfig[:login], blogconfig[:passwd], args[0], args[1])
 				return { 'post_id' => resp }
 
 			when "publish"
-				args[2] ? call = "metaWeblog.newPost" : call = "metaWeblog.editPost"
-				args[2] ? which_id = @blog_id :	which_id = args[0]['post_id']
-				resp = @xmlrpc.call(call, which_id, @login, @passwd, args[0], args[1])	# hash content, boolean state ("publish"|"draft")
+				# blog_api('publish', @post, publish, new)
+				# metaWeblog.newPost (blogid, username, password, struct, publish) returns string
+				# metaWeblog.editPost(blogid, username, password, struct, publish)
+				# struct = { "title" => "", "link" => "", "description" => "" }
+				args[2] ? method = "metaWeblog.newPost" : method = "metaWeblog.editPost"
+				args[2] ? which_id = blogconfig[:blog_id] :	which_id = args[0]['post_id']
+				resp = @xmlrpc.call(method, which_id, blogconfig[:login], blogconfig[:passwd], args[0], args[1])
 				return { 'post_id' => resp }
 
 			when "del"
-				resp = @xmlrpc.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], @login, @passwd)
+				# metaWeblog.deletePost(appkey, postid, username, password, publish) returns boolean
+				resp = @xmlrpc.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], blogconfig[:login], blogconfig[:passwd])
 				return resp
 
 		 end

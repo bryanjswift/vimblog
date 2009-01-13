@@ -67,7 +67,7 @@ endfunction
 
 :command -nargs=* Blog call Wordpress_vim(<f-args>)
 
-function! Wordpress_vim(start, ...)		" {{{1
+function! Wordpress_vim(start, blog, ...)		" {{{1
 	call Blog_syn_hl() " comment if you don't wish syntax highlight activation
 	try
 ruby <<EOF
