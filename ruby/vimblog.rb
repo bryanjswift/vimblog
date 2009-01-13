@@ -43,7 +43,7 @@ class Vimblog
 		config = {}
 		configdata.each { |data|
 			if data.strip =~ /^(\w+):\s+(.+)$/
-				config[$1.to_sym] = $2
+				config[$1.downcase.to_sym] = $2
 			end
 		}
 		@login = config[:login]
