@@ -67,6 +67,8 @@ endfunction
 
 :command -nargs=* Blog call Wordpress_vim(<f-args>)
 
+" start defines the function which will be called
+" blog corresponds to the nam of the blog in the config file
 function! Wordpress_vim(start, blog, ...)		" {{{1
 	call Blog_syn_hl() " comment if you don't wish syntax highlight activation
 	try

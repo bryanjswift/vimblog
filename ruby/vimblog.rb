@@ -209,8 +209,8 @@ class Vimblog
 	end
 
 	#######
-	# api calls. Always returns an hash so that if api is changed, only this
-	# function needs to be changed. One can use between Blogger, metaWeblog or
+	# api calls. Always returns a hash so that if api is changed, only this
+	# function needs to be changed. One choossse between Blogger, metaWeblog or
 	# MovableType very easilly.
 	#
 	def blog_api(fn_api, *args)
@@ -240,6 +240,7 @@ class Vimblog
 					:ping_status => resp['mt_ping_status'],
 					:categories => resp['categories'],
 					:description => resp['description'],
+					:tags => resp['mt_keywords'],
 					:status => resp['post_status']
 				}
 				return @post
@@ -286,6 +287,7 @@ class Vimblog
 				return { [:post_id] => resp }
 
 			when "del"
+				# blog_api('del', postid)
 				# metaWeblog.deletePost(appkey, postid, username, password, publish) returns boolean
 				resp = @xmlrpc.call("metaWeblog.deletePost", "1234567890ABCDE", args[0], blogconfig[:login], blogconfig[:passwd])
 				return resp
@@ -310,6 +312,15 @@ class Vimblog
 	def xmlrpc_flt_xcptn(excpt)
 		msg = "Error code: #{excpt.faultCode} :: Error msg.:#{excpt.faultString}"
 		VIM::command("echo \"#{msg}\"")
+	end
+
+	def symbol_to_string(sym)
+		case sym
+		when :postid
+			return "Post"
+		else
+			return sym.to_s.capitalize
+		end
 	end
 
 end # class Vimblog
