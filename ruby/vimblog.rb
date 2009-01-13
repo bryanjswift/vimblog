@@ -88,10 +88,10 @@ class Vimblog
 	#
 	def blog_publish
 		resp = blog_api("publish", @post, true, @post['new_post'])
-		if (@post['new_post'] and resp['post_id'])
+		if (@post['new_post'] and resp[:post_id])
 		then
 			VIM::command("enew!")
-			VIM::command("Blog gp #{resp['post_id']}")
+			VIM::command("Blog gp #{resp[:post_id]}")
 		end
 	end
 
@@ -100,10 +100,10 @@ class Vimblog
 	#
 	def blog_draft
 		resp = blog_api("draft", @post, false, @post['new_post'])
-		if (@post['new_post'] and resp['post_id'])
+		if (@post['new_post'] and resp[:post_id])
 		then
 			VIM::command("enew!")
-			VIM::command("Blog gp #{resp['post_id']}")
+			VIM::command("Blog gp #{resp[:post_id]}")
 		end
 	end
 
@@ -156,8 +156,8 @@ class Vimblog
 		v.append(v.count, "MOST RECENT #{num} POSTS: ")
 		v.append(v.count, " ")
 		resp.each { |r|
-			v.append(v.count, "Post : [#{r['post_id']}]	Date: #{r['post_date']}")
-			v.append(v.count, "Title: \"#{r['post_title']}\"")
+			v.append(v.count, "Post : [#{r[:postid]}]	Date: #{r[:date]}")
+			v.append(v.count, "Title: \"#{r[:title]}\"")
 			v.append(v.count, " ")
 		}
 	end
@@ -220,10 +220,13 @@ class Vimblog
 			case fn_api
 
 			when "gp"
+				# blog_api('gp', postid)
+				# metaWeblog.getPost (postid, username, password) returns struct
+				# struct is all post data
 				resp = @xmlrpc.call("metaWeblog.getPost", args[0], blogconfig[:login], blogconfig[:passwd])
 				post_id = resp['postid']
 				@post = {
-					:post => resp['postid'],
+					:postid => resp['postid'],
 					:title => resp['title'],
 					:date => same_dt_fmt(resp['dateCreated'].to_time),
 					:link => resp['link'],
@@ -242,19 +245,25 @@ class Vimblog
 				return @post
 
 			when "rp"
+				# blog_api('rp', numposts)
+				# metaWeblog.getRecentPosts (blogid, username, password, numberOfPosts) returns array of structs
+				# structs are whole post objects
 				resp = @xmlrpc.call("mt.getRecentPostTitles", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd], args[0])
-				arr_hash = []
-				resp.each { |respblock| arr_hash << { 'post_id' => respblock['postid'],
-																			'post_title' => respblock['title'],
-																			'post_date' => respblock['dateCreated'].to_time }
+				postarray = []
+				resp.each { |r| postarray << { [:postid] => r['postid'],
+																			[:title] => r['title'],
+																			[:date] => r['dateCreated'].to_time }
 				}
-				return arr_hash
+				return postarray
 
 			when "cl"
-				resp = @xmlrpc.call("mt.getCategoryList", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd])
-				arr_hash = []
+				# blog_api('cl')
+				# metaWeblog.getCategories (blogid, username, password) returns struct
+				# struct = { "categoryId" => 0,"parentId" => 0,"description" => "","categoryName" => "","htmlUrl" => "","rssUrl" => "" }
+				resp = @xmlrpc.call("metaWeblog.getCategories", blogconfig[:blog_id], blogconfig[:login], blogconfig[:passwd])
+				categories = []
 				resp.each { |r| arr_hash << r['categoryName'] }
-				return arr_hash
+				return categories
 
 			when "draft"
 				# blog_api('draft', @post, publish, new)
@@ -264,7 +273,7 @@ class Vimblog
 				args[2] ? method = "metaWeblog.newPost" : method = "metaWeblog.editPost"
 				args[2] ? which_id = blogconfig[:blog_id] :	which_id = args[0]['post_id']
 				resp = @xmlrpc.call(method, which_id, blogconfig[:login], blogconfig[:passwd], args[0], args[1])
-				return { 'post_id' => resp }
+				return { [:postid] => resp }
 
 			when "publish"
 				# blog_api('publish', @post, publish, new)
@@ -274,7 +283,7 @@ class Vimblog
 				args[2] ? method = "metaWeblog.newPost" : method = "metaWeblog.editPost"
 				args[2] ? which_id = blogconfig[:blog_id] :	which_id = args[0]['post_id']
 				resp = @xmlrpc.call(method, which_id, blogconfig[:login], blogconfig[:passwd], args[0], args[1])
-				return { 'post_id' => resp }
+				return { [:post_id] => resp }
 
 			when "del"
 				# metaWeblog.deletePost(appkey, postid, username, password, publish) returns boolean
